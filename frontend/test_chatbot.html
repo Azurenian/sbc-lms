@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Chatbot Test - PI-LMS</title>
+    <link rel="stylesheet" href="static/css/style.css" />
+    <link rel="stylesheet" href="static/css/chatbot.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header style="text-align: center; padding: 2rem 0">
+        <h1>AI Chatbot Test Page</h1>
+        <p>This page tests the AI chatbot widget functionality</p>
+      </header>
+
+      <main style="max-width: 800px; margin: 0 auto; padding: 2rem">
+        <div
+          style="
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          "
+        >
+          <h2>Sample Lesson Content</h2>
+          <p>
+            This is a sample lesson about
+            <strong>Introduction to Machine Learning</strong>.
+          </p>
+
+          <h3>Key Concepts</h3>
+          <ul>
+            <li>Supervised Learning</li>
+            <li>Unsupervised Learning</li>
+            <li>Neural Networks</li>
+            <li>Deep Learning</li>
+          </ul>
+
+          <h3>Learning Objectives</h3>
+          <p>By the end of this lesson, students will be able to:</p>
+          <ol>
+            <li>Understand the basic concepts of machine learning</li>
+            <li>Differentiate between supervised and unsupervised learning</li>
+            <li>Explain the role of neural networks in AI</li>
+          </ol>
+
+          <div
+            style="
+              background: #f8f9fa;
+              padding: 1rem;
+              border-radius: 8px;
+              margin: 1rem 0;
+            "
+          >
+            <strong>💡 Try the AI Chatbot:</strong> Click the chat button in the
+            bottom-right corner to interact with the AI assistant!
+          </div>
+        </div>
+
+        <div
+          style="
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          "
+        >
+          <h3>Test Instructions</h3>
+          <ol>
+            <li>
+              <strong>Look for the chat button</strong> in the bottom-right
+              corner of the page
+            </li>
+            <li><strong>Click the button</strong> to open the chat widget</li>
+            <li>
+              <strong>Try different modes</strong> using the settings button in
+              the chat header
+            </li>
+            <li>
+              <strong>Test sample questions:</strong>
+              <ul>
+                <li>"Summarize this lesson"</li>
+                <li>"Create a quiz question"</li>
+                <li>"Explain neural networks"</li>
+                <li>"What are the learning objectives?"</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Check responsive design</strong> by resizing the browser
+              window
+            </li>
+          </ol>
+
+          <div
+            style="
+              margin-top: 1.5rem;
+              padding: 1rem;
+              background: #e3f2fd;
+              border-radius: 8px;
+            "
+          >
+            <strong>📋 Expected Behavior:</strong>
+            <ul style="margin-top: 0.5rem">
+              <li>Chat widget should appear and expand smoothly</li>
+              <li>
+                Connection status should show "Connected" (if backend is
+                running)
+              </li>
+              <li>
+                Messages should send and receive (if backend is available)
+              </li>
+              <li>Mode switching should work properly</li>
+              <li>Widget should be responsive on mobile sizes</li>
+            </ul>
+          </div>
+
+          <div
+            style="
+              margin-top: 1rem;
+              padding: 1rem;
+              background: #fff3cd;
+              border-radius: 8px;
+            "
+          >
+            <strong>⚠️ Note:</strong> If the backend AI server (pi-ai) is not
+            running on localhost:8000, the chat will show "Connection failed"
+            but the UI should still function properly.
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Initialize the chatbot with test data -->
+    <script src="static/js/chatbot.js"></script>
+    <script>
+      // Test data - simulating lesson and user data
+      const testLessonData = {
+        id: 1,
+        title: "Introduction to Machine Learning",
+        course: {
+          id: 1,
+          title: "Computer Science 101",
+        },
+        content: {
+          root: {
+            children: [
+              {
+                type: "heading",
+                tag: "h2",
+                children: [
+                  { type: "text", text: "Introduction to Machine Learning" },
+                ],
+              },
+              {
+                type: "paragraph",
+                children: [
+                  {
+                    type: "text",
+                    text: "Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data.",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      };
+
+      const testUserData = {
+        id: 1,
+        email: "test@example.com",
+        role: "student",
+      };
+
+      // Initialize chatbot when page loads
+      document.addEventListener("DOMContentLoaded", function () {
+        try {
+          console.log("Initializing test chatbot...");
+          window.testChatbot = new ChatbotWidget(
+            testLessonData.id,
+            testUserData.id
+          );
+
+          // Add test success indicator
+          setTimeout(() => {
+            const indicator = document.createElement("div");
+            indicator.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: #10b981;
+                        color: white;
+                        padding: 10px 15px;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        z-index: 1001;
+                        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                    `;
+            indicator.textContent = "✅ Chatbot Widget Loaded Successfully";
+            document.body.appendChild(indicator);
+
+            // Remove after 5 seconds
+            setTimeout(() => indicator.remove(), 5000);
+          }, 1000);
+        } catch (error) {
+          console.error("Failed to initialize test chatbot:", error);
+
+          // Add error indicator
+          const indicator = document.createElement("div");
+          indicator.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #ef4444;
+                    color: white;
+                    padding: 10px 15px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    z-index: 1001;
+                    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+                `;
+          indicator.textContent = "❌ Chatbot Widget Failed to Load";
+          document.body.appendChild(indicator);
+
+          setTimeout(() => indicator.remove(), 5000);
+        }
+      });
+
+      // Add some test functions to window for debugging
+      window.testChatbotFunctions = {
+        sendTestMessage: () => {
+          if (window.testChatbot) {
+            const input = document.getElementById("chat-input");
+            if (input) {
+              input.value = "Hello! This is a test message.";
+              window.testChatbot.handleInputChange();
+              window.testChatbot.sendMessage();
+            }
+          }
+        },
+        toggleChat: () => {
+          if (window.testChatbot) {
+            window.testChatbot.toggleChat();
+          }
+        },
+        checkConnection: () => {
+          if (window.testChatbot) {
+            console.log(
+              "WebSocket state:",
+              window.testChatbot.websocket?.readyState
+            );
+            console.log("Connected:", window.testChatbot.isConnected);
+            console.log("Session ID:", window.testChatbot.sessionId);
+          }
+        },
+      };
+
+      // Log test functions for debugging
+      console.log(
+        "Test functions available:",
+        Object.keys(window.testChatbotFunctions)
+      );
+      console.log(
+        "Use testChatbotFunctions.checkConnection() to debug WebSocket issues"
+      );
+    </script>
+  </body>
+</html>

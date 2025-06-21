@@ -1,0 +1,236 @@
+{% extends "base.html" %} {% block title %}Dashboard - PI-LMS{% endblock %} {%
+block content %}
+<div class="dashboard-container" x-data="dashboard()">
+  <!-- Header -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div class="logo">
+        <h1>PI-LMS</h1>
+      </div>
+      <div class="user-menu">
+        <span class="welcome-text">Welcome, {{ user.firstName }}</span>
+        <button
+          hx-post="/api/logout"
+          hx-trigger="click"
+          hx-target="#logout-result"
+          hx-swap="innerHTML"
+          @click="handleLogout"
+          class="logout-btn"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="dashboard-main">
+    <div class="dashboard-grid">
+      <!-- User Info Card -->
+      <div class="card user-card">
+        <div class="card-header">
+          <h2>User Information</h2>
+          <div class="role-badge role-{{ user.role }}">
+            {{ user.role.title() }}
+          </div>
+        </div>
+        <div class="card-content">
+          <div class="user-details">
+            <div class="detail-row">
+              <span class="label">Full Name:</span>
+              <span class="value"
+                >{{ user.firstName }} {{ user.lastName }}</span
+              >
+            </div>
+            <div class="detail-row">
+              <span class="label">Email:</span>
+              <span class="value">{{ user.email }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Role:</span>
+              <span class="value role-text role-{{ user.role }}"
+                >{{ user.role.title() }}</span
+              >
+            </div>
+            <div class="detail-row">
+              <span class="label">User ID:</span>
+              <span class="value">{{ user.id }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions Card -->
+      <div class="card actions-card">
+        <div class="card-header">
+          <h2>Quick Actions</h2>
+        </div>
+        <div class="card-content">
+          <div class="action-buttons">
+            {% if user.role == 'admin' %}
+            <button class="action-btn admin-action" @click="openAdminPanel">
+              <span class="icon">⚙️</span>
+              Admin Panel
+            </button>
+            {% endif %} {% if user.role in ['instructor', 'admin'] %}
+            <button class="action-btn instructor-action" @click="manageCourses">
+              <span class="icon">📚</span>
+              Manage Courses
+            </button>
+            <button
+              class="action-btn lesson-generator-action"
+              @click="openLessonGenerator"
+            >
+              <span class="icon">🤖</span>
+              AI Lesson Generator
+            </button>
+            {% endif %}
+
+            <button class="action-btn student-action" @click="viewCourses">
+              <span class="icon">🎓</span>
+              {% if user.role == 'student' %}My Courses{% else %}View All
+              Courses{% endif %}
+            </button>
+
+            <button class="action-btn profile-action" @click="editProfile">
+              <span class="icon">👤</span>
+              Edit Profile
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Status Card -->
+      <div class="card status-card">
+        <div class="card-header">
+          <h2>System Status</h2>
+        </div>
+        <div class="card-content">
+          <div class="status-items">
+            <div class="status-item">
+              <div class="status-indicator online"></div>
+              <span>PI-LMS Backend</span>
+              <span class="status-text">Online</span>
+            </div>
+            <div class="status-item">
+              <div class="status-indicator online"></div>
+              <span>PI-AI Service</span>
+              <span class="status-text">Connected</span>
+            </div>
+            <div class="status-item">
+              <div class="status-indicator online"></div>
+              <span>Database</span>
+              <span class="status-text">Active</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity Card -->
+      <div class="card activity-card">
+        <div class="card-header">
+          <h2>Recent Activity</h2>
+        </div>
+        <div class="card-content">
+          <div class="activity-list">
+            <div class="activity-item">
+              <div class="activity-icon">🔐</div>
+              <div class="activity-text">
+                <span class="activity-title">Logged in</span>
+                <span class="activity-time" x-text="currentTime"></span>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-icon">📱</div>
+              <div class="activity-text">
+                <span class="activity-title">Accessed dashboard</span>
+                <span class="activity-time">Just now</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="logout-result"></div>
+</div>
+
+<script>
+  function dashboard() {
+    return {
+      currentTime: "",
+
+      init() {
+        this.updateTime();
+        setInterval(() => this.updateTime(), 1000);
+        this.checkForLessonCreation();
+      },
+
+      checkForLessonCreation() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const lessonId = urlParams.get("lesson_created");
+        if (lessonId) {
+          showToast(
+            `Lesson created successfully! Lesson ID: ${lessonId}`,
+            "success"
+          );
+          // Clean up URL
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          );
+        }
+      },
+
+      updateTime() {
+        this.currentTime = new Date().toLocaleString();
+      },
+
+      handleLogout() {
+        showToast("Logging out...", "info");
+      },
+
+      openAdminPanel() {
+        showToast("Opening admin panel...", "info");
+        // In a real app, this would navigate to admin panel
+        window.open("http://localhost:3000/admin", "_blank");
+      },
+
+      manageCourses() {
+        showToast("Course management feature coming soon!", "info");
+      },
+
+      viewCourses() {
+        showToast("Loading courses...", "info");
+        window.location.href = "/courses";
+      },
+
+      editProfile() {
+        showToast("Profile editor feature coming soon!", "info");
+      },
+
+      openLessonGenerator() {
+        showToast("Opening AI Lesson Generator...", "info");
+        window.location.href = "/lesson-generator";
+      },
+    };
+  }
+
+  // Handle logout response
+  document.body.addEventListener("htmx:afterRequest", function (evt) {
+    if (evt.detail.target.id === "logout-result") {
+      if (evt.detail.xhr.status === 200) {
+        const response = JSON.parse(evt.detail.xhr.responseText);
+        if (response.success) {
+          showToast("Logged out successfully! Redirecting...", "success");
+          setTimeout(() => {
+            window.location.href = response.redirect;
+          }, 1000);
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

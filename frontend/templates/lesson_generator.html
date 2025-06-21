@@ -1,0 +1,559 @@
+{% extends "base.html" %} {% block title %}AI Lesson Generator - PI-LMS{%
+endblock %} {% block content %}
+<div class="lesson-generator-container" x-data="lessonGenerator()">
+  <!-- Header -->
+  <header class="lesson-generator-header">
+    <div class="header-content">
+      <div class="back-nav">
+        <a href="/dashboard" class="back-btn">
+          <span class="icon">←</span>
+          Back to Dashboard
+        </a>
+      </div>
+      <div class="title-section">
+        <h1>🤖 AI Lesson Generator</h1>
+        <p>
+          Transform your PDF content into interactive lessons with AI assistance
+        </p>
+      </div>
+      <div class="user-info">
+        <span class="welcome-text"
+          >{{ user.firstName }} {{ user.lastName }}</span
+        >
+        <span class="role-badge role-{{ user.role }}"
+          >{{ user.role.title() }}</span
+        >
+      </div>
+    </div>
+  </header>
+
+  <!-- Progress Steps -->
+  <div class="progress-steps">
+    <div
+      class="step"
+      :class="{ 'active': currentStep >= 1, 'completed': currentStep > 1 }"
+    >
+      <div class="step-number">1</div>
+      <div class="step-label">Upload & Prompt</div>
+    </div>
+    <div
+      class="step"
+      :class="{ 'active': currentStep >= 2, 'completed': currentStep > 2 }"
+    >
+      <div class="step-number">2</div>
+      <div class="step-label">AI Processing</div>
+    </div>
+    <div
+      class="step"
+      :class="{ 'active': currentStep >= 3, 'completed': currentStep > 3 }"
+    >
+      <div class="step-number">3</div>
+      <div class="step-label">Video Selection</div>
+    </div>
+    <div
+      class="step"
+      :class="{ 'active': currentStep >= 4, 'completed': currentStep > 4 }"
+    >
+      <div class="step-number">4</div>
+      <div class="step-label">Lesson Preview</div>
+    </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <main class="lesson-generator-main">
+    <!-- Stage 1: PDF Upload + Prompt -->
+    <div class="stage" x-show="currentStep === 1" x-transition>
+      <div class="stage-card">
+        <div class="stage-header">
+          <h2>📄 Upload PDF & Customize Instructions</h2>
+          <p>
+            Upload your educational content and add specific instructions for AI
+            processing
+          </p>
+        </div>
+
+        <form class="upload-form" @submit.prevent="startGeneration">
+          <!-- File Upload -->
+          <div class="form-section">
+            <label class="form-label">Upload PDF File</label>
+            <div
+              class="file-upload-area"
+              @dragover.prevent="dragOver = true"
+              @dragleave.prevent="dragOver = false"
+              @drop.prevent="handleFileDrop"
+              :class="{ 'drag-over': dragOver }"
+              @click="$refs.pdfFileInput.click()"
+            >
+              <input
+                type="file"
+                id="pdfFile"
+                accept=".pdf"
+                @change="handleFileSelect"
+                class="file-input"
+                required
+                x-ref="pdfFileInput"
+                style="display: none"
+              />
+              <div class="upload-content">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">
+                  <span x-show="!selectedFile"
+                    >Drag & drop your PDF here or click to browse</span
+                  >
+                  <span
+                    x-show="selectedFile"
+                    x-text="selectedFile?.name"
+                    class="file-name"
+                  ></span>
+                </div>
+                <div class="upload-hint">Maximum file size: 10MB</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lesson Title -->
+          <div class="form-section">
+            <label for="lessonTitle" class="form-label">Lesson Title</label>
+            <input
+              type="text"
+              id="lessonTitle"
+              x-model="lessonTitle"
+              class="form-input"
+              placeholder="Enter a descriptive title for your lesson"
+              required
+            />
+          </div>
+
+          <!-- Course Selection -->
+          <div class="form-section">
+            <label for="courseId" class="form-label">Target Course</label>
+            <select
+              id="courseId"
+              x-model="courseId"
+              class="form-select"
+              required
+            >
+              <option value="">Select a course...</option>
+              <template x-for="course in availableCourses" :key="course.id">
+                <option :value="course.id" x-text="course.title"></option>
+              </template>
+            </select>
+            <div x-show="coursesLoading" class="form-hint">
+              Loading courses...
+            </div>
+            <div
+              x-show="coursesError"
+              class="form-hint error"
+              x-text="coursesError"
+            ></div>
+          </div>
+
+          <!-- Foundation Prompt (Read-only) -->
+          <div class="form-section">
+            <label class="form-label">Foundation Prompt</label>
+            <div class="foundation-prompt-section">
+              <button
+                type="button"
+                class="prompt-toggle"
+                @click="showFoundationPrompt = !showFoundationPrompt"
+              >
+                <span x-text="showFoundationPrompt ? '▼' : '▶'"></span>
+                View Foundation Prompt (AI Base Instructions)
+              </button>
+              <div
+                x-show="showFoundationPrompt"
+                x-transition
+                class="foundation-prompt-content"
+              >
+                <div class="prompt-info">
+                  <p>
+                    <strong>Description:</strong>
+                    <span x-text="foundationPromptData.description"></span>
+                  </p>
+                  <p>
+                    <strong>Version:</strong>
+                    <span x-text="foundationPromptData.version"></span>
+                  </p>
+                </div>
+                <textarea
+                  class="foundation-prompt-text"
+                  x-text="foundationPromptData.prompt"
+                  readonly
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- User Custom Prompt -->
+          <div class="form-section">
+            <label for="userPrompt" class="form-label"
+              >Additional Instructions (Optional)</label
+            >
+            <textarea
+              id="userPrompt"
+              x-model="userPrompt"
+              class="form-textarea"
+              rows="4"
+              placeholder="Add specific instructions for the AI to customize the lesson generation. For example: 'Focus on practical examples', 'Include more visual descriptions', 'Target beginner level', etc."
+            ></textarea>
+            <div class="form-hint">
+              These instructions will be added to the foundation prompt
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="form-actions">
+            <button
+              type="submit"
+              class="btn btn-primary btn-large"
+              :disabled="!canStartGeneration"
+            >
+              <span class="btn-icon">🚀</span>
+              Start AI Lesson Generation
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Stage 2: AI Processing -->
+    <div class="stage" x-show="currentStep === 2" x-transition>
+      <div class="stage-card">
+        <div class="stage-header">
+          <h2>🤖 AI Processing Your Content</h2>
+          <p>
+            Please wait while our AI analyzes your PDF and generates the lesson
+            content
+          </p>
+        </div>
+
+        <div class="progress-section">
+          <!-- Progress Bar -->
+          <div class="progress-bar-container">
+            <div class="progress-bar">
+              <div
+                class="progress-fill"
+                :style="`width: ${progressData.progress}%`"
+              ></div>
+            </div>
+            <div class="progress-text">
+              <span x-text="progressData.progress">0</span>% Complete
+            </div>
+          </div>
+
+          <!-- Current Stage -->
+          <div class="current-stage">
+            <div class="stage-icon" x-text="getStageIcon(progressData.stage)">
+              📄
+            </div>
+            <div class="stage-info">
+              <div class="stage-name" x-text="getStageName(progressData.stage)">
+                Initializing...
+              </div>
+              <div class="stage-message" x-text="progressData.message">
+                Starting process...
+              </div>
+            </div>
+          </div>
+
+          <!-- Processing Steps -->
+          <div class="processing-steps">
+            <div
+              class="process-step"
+              :class="{ 'completed': isStageCompleted('upload'), 'active': progressData.stage === 'upload' }"
+            >
+              <div class="step-icon">📤</div>
+              <span>File Upload</span>
+            </div>
+            <div
+              class="process-step"
+              :class="{ 'completed': isStageCompleted('processing'), 'active': progressData.stage === 'processing' }"
+            >
+              <div class="step-icon">🧠</div>
+              <span>AI Analysis</span>
+            </div>
+            <div
+              class="process-step"
+              :class="{ 'completed': isStageCompleted('youtube'), 'active': progressData.stage === 'youtube' }"
+            >
+              <div class="step-icon">🎥</div>
+              <span>Media Generation</span>
+            </div>
+            <div
+              class="process-step"
+              :class="{ 'completed': isStageCompleted('selection'), 'active': progressData.stage === 'selection' }"
+            >
+              <div class="step-icon">✅</div>
+              <span>Completion</span>
+            </div>
+          </div>
+
+          <!-- Cancel Button -->
+          <div class="processing-actions">
+            <button class="btn btn-secondary" @click="showCancelModal = true">
+              <span class="btn-icon">⛔</span>
+              Cancel Generation
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 3: Video Selection -->
+    <div class="stage" x-show="currentStep === 3" x-transition>
+      <div class="stage-card">
+        <div class="stage-header">
+          <h2>🎥 Select Educational Videos</h2>
+          <p>Choose videos that complement your lesson content</p>
+        </div>
+
+        <div class="video-selection-section">
+          <!-- Suggested Videos -->
+          <div class="suggested-videos">
+            <h3>🎯 AI-Suggested Videos</h3>
+            <div class="videos-grid" x-show="suggestedVideos.length > 0">
+              <template x-for="video in suggestedVideos" :key="video.videoId">
+                <div
+                  class="video-card"
+                  :class="{ 'selected': isVideoSelected(video) }"
+                >
+                  <div class="video-thumbnail">
+                    <img
+                      :src="video.thumbnail"
+                      :alt="video.title"
+                      loading="lazy"
+                    />
+                    <div class="video-duration" x-text="video.duration"></div>
+                  </div>
+                  <div class="video-info">
+                    <h4 class="video-title" x-text="video.title"></h4>
+                    <p class="video-channel" x-text="video.channel"></p>
+                    <p class="video-views" x-text="video.views + ' views'"></p>
+                  </div>
+                  <div class="video-actions">
+                    <button
+                      class="btn btn-small"
+                      :class="isVideoSelected(video) ? 'btn-danger' : 'btn-primary'"
+                      @click="toggleVideoSelection(video)"
+                    >
+                      <span x-show="!isVideoSelected(video)">➕ Add</span>
+                      <span x-show="isVideoSelected(video)">➖ Remove</span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div x-show="suggestedVideos.length === 0" class="no-videos">
+              <p>
+                No videos found. You can search for more or add a specific URL
+                below.
+              </p>
+            </div>
+          </div>
+
+          <!-- Search More Videos -->
+          <div class="video-search-section">
+            <h3>🔍 Search More Videos</h3>
+            <div class="search-input-group">
+              <input
+                type="text"
+                x-model="videoSearchKeywords"
+                class="search-input"
+                placeholder="Enter keywords to search for more videos..."
+              />
+              <button class="btn btn-secondary" @click="searchMoreVideos">
+                🔍 Search
+              </button>
+            </div>
+          </div>
+
+          <!-- Add YouTube URL -->
+          <div class="youtube-url-section">
+            <h3>🔗 Add Specific YouTube Video</h3>
+            <div class="url-input-group">
+              <input
+                type="url"
+                x-model="youtubeUrl"
+                class="search-input"
+                placeholder="Paste YouTube URL here..."
+              />
+              <button class="btn btn-secondary" @click="addYoutubeVideo">
+                ➕ Add Video
+              </button>
+            </div>
+          </div>
+
+          <!-- Selected Videos Summary -->
+          <div
+            class="selected-videos-summary"
+            x-show="selectedVideos.length > 0"
+          >
+            <h3>
+              ✅ Selected Videos (<span x-text="selectedVideos.length"></span>)
+            </h3>
+            <div class="selected-videos-list">
+              <template x-for="video in selectedVideos" :key="video.videoId">
+                <div class="selected-video-item">
+                  <img
+                    :src="video.thumbnail"
+                    :alt="video.title"
+                    class="mini-thumbnail"
+                  />
+                  <span class="video-title" x-text="video.title"></span>
+                  <button
+                    class="btn btn-small btn-danger"
+                    @click="removeVideoSelection(video)"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="stage-actions">
+            <button class="btn btn-secondary" @click="currentStep = 2">
+              ← Back to Processing
+            </button>
+            <button
+              class="btn btn-primary btn-large"
+              @click="proceedToPreview"
+              :disabled="selectedVideos.length === 0"
+            >
+              <span class="btn-icon">👁️</span>
+              Preview Lesson
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 4: Lesson Preview -->
+    <div class="stage" x-show="currentStep === 4" x-transition>
+      <div class="stage-card">
+        <div class="stage-header">
+          <h2>👁️ Preview & Finalize Lesson</h2>
+        </div>
+
+        <div class="preview-section">
+          <!-- Lesson Info -->
+          <div class="lesson-info-bar">
+            <div class="lesson-meta">
+              <h3 x-text="lessonTitle"></h3>
+              <span class="lesson-course"
+                >Course: <span x-text="courseDisplayText"></span
+              ></span>
+            </div>
+            <div class="lesson-stats">
+              <span class="stat-item">🎵 Audio: Ready</span>
+              <span class="stat-item"
+                >🎥 Videos:
+                <span x-text="selectedVideos.length"></span> selected</span
+              >
+            </div>
+          </div>
+
+          <!-- Lexical Editor Placeholder -->
+          <div class="editor-container">
+            <div class="editor-toolbar">
+              <span class="toolbar-title">Lesson Content Editor</span>
+              <div class="toolbar-actions">
+                <button
+                  class="btn btn-small btn-secondary"
+                  @click="resetToOriginal"
+                >
+                  🔄 Reset to Original
+                </button>
+              </div>
+            </div>
+            <div id="lexical-editor" class="lexical-editor">
+              <!-- Lexical editor will be mounted here -->
+              <div class="editor-placeholder">
+                <p>📝 Lexical Editor will be integrated here</p>
+                <p>
+                  Generated lesson content will be editable in rich text format
+                </p>
+                <div class="preview-content" x-html="getPreviewContent()"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Final Actions -->
+          <div class="stage-actions">
+            <button class="btn btn-secondary" @click="currentStep = 3">
+              ← Back to Video Selection
+            </button>
+            <button
+              class="btn btn-success btn-large"
+              @click="submitLesson"
+              :disabled="isSubmitting"
+            >
+              <span class="btn-icon">✅</span>
+              <span x-show="!isSubmitting">Submit Lesson</span>
+              <span x-show="isSubmitting">Submitting...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Cancel Confirmation Modal -->
+  <div
+    class="modal-overlay"
+    x-show="showCancelModal"
+    @click="showCancelModal = false"
+    x-transition
+  >
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <h3>⚠️ Cancel Lesson Generation</h3>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to cancel the lesson generation?</p>
+        <p>All progress will be lost and temporary files will be cleaned up.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" @click="showCancelModal = false">
+          Continue Generation
+        </button>
+        <button class="btn btn-danger" @click="cancelGeneration">
+          Yes, Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Persistent Progress Indicator -->
+  <div
+    class="progress-indicator"
+    x-show="showProgressIndicator"
+    x-transition
+    @click="returnToGeneration"
+  >
+    <div class="indicator-content">
+      <div class="indicator-icon">🤖</div>
+      <div class="indicator-text">
+        <div class="indicator-title">Lesson Generation</div>
+        <div class="indicator-progress">
+          <span x-text="progressData.progress">0</span>% -
+          <span x-text="getStageName(progressData.stage)">Processing</span>
+        </div>
+      </div>
+      <div class="indicator-actions">
+        <button
+          class="indicator-btn"
+          @click.stop="showProgressIndicator = false"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Include Lesson Generator JavaScript -->
+<script src="/static/js/lexical-editor.js"></script>
+<script src="/static/js/lesson_generator.js"></script>
+{% endblock %}

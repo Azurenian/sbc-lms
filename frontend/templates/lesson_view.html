@@ -1,0 +1,694 @@
+{% extends "base.html" %} {% block title %}{{ lesson.title }} - PI-LMS{%
+endblock %} {% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/chatbot.css') }}" />
+{% endblock %} {% block content %}
+<div class="lesson-view-container" x-data="lessonViewPage()">
+  <!-- Header -->
+  <header class="lesson-header">
+    <div class="header-content">
+      <div class="header-left">
+        <button @click="goBack" class="back-btn">← Back to Course</button>
+        <div class="lesson-info">
+          <h1 x-text="lesson.title"></h1>
+          <div class="lesson-meta">
+            <span class="course-title" x-text="lesson.course?.title"></span>
+            <span class="separator">•</span>
+            <span class="last-updated"
+              >Updated <span x-text="formatDate(lesson.updatedAt)"></span
+            ></span>
+          </div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div
+          class="lesson-status"
+          :class="{'published': lesson.published, 'draft': !lesson.published}"
+        >
+          <span x-text="lesson.published ? 'Published' : 'Draft'"></span>
+        </div>
+        <template x-if="user.role !== 'student'">
+          <div class="lesson-actions">
+            <button @click="editLesson" class="btn-secondary">✏️ Edit</button>
+            <button @click="deleteLesson" class="btn-danger">🗑️ Delete</button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading State -->
+  <div x-show="loading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <p>Loading lesson content...</p>
+  </div>
+
+  <!-- Error State -->
+  <div x-show="error" class="error-container">
+    <div class="error-message">
+      <h3>Error Loading Lesson</h3>
+      <p x-text="errorMessage"></p>
+      <button @click="loadLesson" class="retry-btn">Try Again</button>
+    </div>
+  </div>
+
+  <!-- Lesson Content -->
+  <main class="lesson-main" x-show="!loading && !error">
+    <div class="lesson-content">
+      <!-- Lesson Content will be rendered here by Lexical renderer -->
+      <div id="lesson-content-renderer" class="lexical-content">
+        <!-- Content will be dynamically inserted here -->
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="lesson-navigation" x-show="navigationLessons.length > 1">
+      <div class="nav-content">
+        <button
+          @click="goToPreviousLesson"
+          :disabled="!previousLesson"
+          class="nav-btn prev-btn"
+          x-show="previousLesson"
+        >
+          ← Previous: <span x-text="previousLesson?.title"></span>
+        </button>
+
+        <div class="lesson-progress">
+          <span
+            x-text="`${currentLessonIndex + 1} of ${navigationLessons.length}`"
+          ></span>
+        </div>
+
+        <button
+          @click="goToNextLesson"
+          :disabled="!nextLesson"
+          class="nav-btn next-btn"
+          x-show="nextLesson"
+        >
+          Next: <span x-text="nextLesson?.title"></span> →
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- AI Chatbot will be initialized here -->
+
+<script src="{{ url_for('static', path='js/chatbot.js') }}"></script>
+<script>
+  function lessonViewPage() {
+    return {
+      loading: true,
+      error: false,
+      errorMessage: '',
+      lesson: {{ lesson | tojson }},
+      user: {{ user | tojson }},
+      lexicalRenderer: null,
+      navigationLessons: [],
+      currentLessonIndex: -1,
+      previousLesson: null,
+      nextLesson: null,
+
+      async init() {
+        await this.loadLesson();
+        await this.loadNavigationLessons();
+        this.initializeLexicalRenderer();
+      },
+
+      async loadLesson() {
+        this.loading = true;
+        this.error = false;
+
+        try {
+          // Lesson data is already provided from the server
+          if (this.lesson && this.lesson.content) {
+            this.loading = false;
+            return;
+          }
+
+          // Fallback: load lesson data via API
+          const response = await fetch(`/api/lessons/${this.lesson.id}`);
+          const data = await response.json();
+
+          if (response.ok) {
+            this.lesson = data.lesson;
+          } else {
+            throw new Error(data.error || 'Failed to load lesson');
+          }
+        } catch (error) {
+          console.error('Error loading lesson:', error);
+          this.error = true;
+          this.errorMessage = error.message;
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async loadNavigationLessons() {
+        try {
+          const response = await fetch(`/api/courses/${this.lesson.course.id}/lessons`);
+          const data = await response.json();
+
+          if (response.ok) {
+            this.navigationLessons = data.lessons || [];
+            this.currentLessonIndex = this.navigationLessons.findIndex(l => l.id === this.lesson.id);
+
+            if (this.currentLessonIndex > 0) {
+              this.previousLesson = this.navigationLessons[this.currentLessonIndex - 1];
+            }
+
+            if (this.currentLessonIndex < this.navigationLessons.length - 1) {
+              this.nextLesson = this.navigationLessons[this.currentLessonIndex + 1];
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to load navigation lessons:', error);
+        }
+      },
+
+      initializeLexicalRenderer() {
+        if (!this.lesson.content) {
+          document.getElementById('lesson-content-renderer').innerHTML =
+            '<p class="no-content">This lesson has no content yet.</p>';
+          return;
+        }
+
+        // Create a simple lexical renderer
+        this.renderLexicalContent();
+      },
+
+      renderLexicalContent() {
+        const container = document.getElementById('lesson-content-renderer');
+        if (!container || !this.lesson.content || !this.lesson.content.root) {
+          container.innerHTML = '<p class="no-content">No lesson content available.</p>';
+          return;
+        }
+
+        const children = this.lesson.content.root.children || [];
+        const html = this.renderChildren(children);
+        container.innerHTML = html || '<p class="no-content">Empty lesson content.</p>';
+      },
+
+      renderChildren(children) {
+        return children.map(node => this.renderNode(node)).join('');
+      },
+
+      renderNode(node) {
+        switch (node.type) {
+          case 'paragraph':
+            return `<p class="lesson-paragraph">${this.renderChildren(node.children || [])}</p>`;
+
+          case 'heading':
+            const tag = node.tag || 'h2';
+            return `<${tag} class="lesson-heading">${this.renderChildren(node.children || [])}</${tag}>`;
+
+          case 'text':
+            let text = this.escapeHtml(node.text || '');
+
+            // Apply formatting
+            if (node.format) {
+              if (node.format & 1) text = `<strong>${text}</strong>`; // Bold
+              if (node.format & 2) text = `<em>${text}</em>`; // Italic
+              if (node.format & 4) text = `<u>${text}</u>`; // Underline
+            }
+
+            return text;
+
+          case 'list':
+            const listTag = node.listType === 'number' ? 'ol' : 'ul';
+            return `<${listTag} class="lesson-list">${this.renderChildren(node.children || [])}</${listTag}>`;
+
+          case 'listitem':
+            return `<li class="lesson-list-item">${this.renderChildren(node.children || [])}</li>`;
+
+          case 'upload':
+            // Handle media uploads (audio/video/images)
+            if (node.relationTo === 'media' && node.value) {
+              return this.renderMediaNode(node.value);
+            }
+            return '';
+
+          case 'linebreak':
+            return '<br>';
+
+          default:
+            console.warn('Unknown node type:', node.type, node);
+            return '';
+        }
+      },
+
+      renderMediaNode(mediaValue) {
+        if (!mediaValue || !mediaValue.url) {
+          return '<div class="media-error">Media content unavailable</div>';
+        }
+
+        const mediaUrl = `http://localhost:3000${mediaValue.url}`;
+        const mimeType = mediaValue.mimeType || '';
+
+        if (mimeType.startsWith('image/')) {
+          return `
+            <div class="media-container image-container">
+              <img
+                src="${mediaUrl}"
+                alt="${mediaValue.alt || 'Lesson image'}"
+                class="lesson-image"
+                loading="lazy"
+              >
+              ${mediaValue.alt ? `<p class="media-caption">${mediaValue.alt}</p>` : ''}
+            </div>
+          `;
+        } else if (mimeType.startsWith('audio/')) {
+          return `
+            <div class="media-container audio-container">
+              <h4 class="media-title">🎵 Audio Content</h4>
+              <audio controls class="lesson-audio">
+                <source src="${mediaUrl}" type="${mimeType}">
+                Your browser does not support the audio element.
+              </audio>
+              ${mediaValue.alt ? `<p class="media-caption">${mediaValue.alt}</p>` : ''}
+            </div>
+          `;
+        } else if (mimeType.startsWith('video/')) {
+          return `
+            <div class="media-container video-container">
+              <h4 class="media-title">🎬 Video Content</h4>
+              <video controls class="lesson-video">
+                <source src="${mediaUrl}" type="${mimeType}">
+                Your browser does not support the video element.
+              </video>
+              ${mediaValue.alt ? `<p class="media-caption">${mediaValue.alt}</p>` : ''}
+            </div>
+          `;
+        } else {
+          return `
+            <div class="media-container file-container">
+              <h4 class="media-title">📎 File Attachment</h4>
+              <a href="${mediaUrl}" download="${mediaValue.filename}" class="file-download">
+                📁 ${mediaValue.filename || 'Download file'}
+              </a>
+              ${mediaValue.alt ? `<p class="media-caption">${mediaValue.alt}</p>` : ''}
+            </div>
+          `;
+        }
+      },
+
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      },
+
+      formatDate(dateString) {
+        return new Date(dateString).toLocaleDateString();
+      },
+
+      editLesson() {
+        showToast('Opening lesson editor...', 'info');
+        window.location.href = `/lessons/${this.lesson.id}/edit`;
+      },
+
+      async deleteLesson() {
+        if (!confirm('Are you sure you want to delete this lesson? This action cannot be undone.')) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/lessons/${this.lesson.id}`, {
+            method: 'DELETE'
+          });
+
+          if (response.ok) {
+            showToast('Lesson deleted successfully', 'success');
+            this.goBack();
+          } else {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to delete lesson');
+          }
+        } catch (error) {
+          showToast(`Error deleting lesson: ${error.message}`, 'error');
+        }
+      },
+
+      goToPreviousLesson() {
+        if (this.previousLesson) {
+          window.location.href = `/lessons/${this.previousLesson.id}`;
+        }
+      },
+
+      goToNextLesson() {
+        if (this.nextLesson) {
+          window.location.href = `/lessons/${this.nextLesson.id}`;
+        }
+      },
+
+      goBack() {
+        window.location.href = `/courses/${this.lesson.course.id}`;
+      }
+    };
+  }
+
+  // Initialize AI Chatbot
+  document.addEventListener('DOMContentLoaded', function() {
+    // Only initialize chatbot if we have lesson data and user is authenticated
+    if (typeof ChatbotWidget !== 'undefined') {
+      const lessonData = {{ lesson | tojson }};
+      const userData = {{ user | tojson }};
+
+      if (lessonData && lessonData.id && userData) {
+        try {
+          // Initialize the chatbot widget
+          window.chatbotInstance = new ChatbotWidget(lessonData.id, userData.id);
+          console.log('AI Chatbot initialized for lesson:', lessonData.title);
+        } catch (error) {
+          console.warn('Failed to initialize AI Chatbot:', error);
+        }
+      }
+    }
+  });
+</script>
+
+<style>
+  .lesson-view-container {
+    min-height: 100vh;
+    background: var(--bg-secondary);
+  }
+
+  .lesson-header {
+    background: white;
+    border-bottom: 1px solid var(--border-color);
+    padding: 1.5rem 0;
+  }
+
+  .header-content {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1;
+  }
+
+  .back-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+
+  .back-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .lesson-info h1 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-primary);
+    font-size: 1.8rem;
+    line-height: 1.2;
+  }
+
+  .lesson-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .course-title {
+    font-weight: 600;
+    color: var(--primary-color);
+  }
+
+  .separator {
+    color: var(--border-color);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .lesson-status {
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .lesson-status.published {
+    background: var(--success-color);
+    color: white;
+  }
+
+  .lesson-status.draft {
+    background: var(--warning-color);
+    color: white;
+  }
+
+  .lesson-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .lesson-main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .lesson-content {
+    background: white;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    padding: 3rem;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+
+  .lexical-content {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+  }
+
+  .lesson-paragraph {
+    margin-bottom: 1.5rem;
+    line-height: 1.7;
+  }
+
+  .lesson-heading {
+    color: var(--text-primary);
+    margin: 2rem 0 1rem 0;
+    font-weight: 600;
+  }
+
+  .lesson-heading:first-child {
+    margin-top: 0;
+  }
+
+  .lesson-list {
+    margin: 1.5rem 0;
+    padding-left: 2rem;
+  }
+
+  .lesson-list-item {
+    margin-bottom: 0.5rem;
+  }
+
+  .media-container {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+  }
+
+  .media-title {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+  }
+
+  .lesson-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .lesson-audio,
+  .lesson-video {
+    width: 100%;
+    max-width: 600px;
+    border-radius: var(--border-radius);
+  }
+
+  .lesson-video {
+    max-height: 400px;
+  }
+
+  .file-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--primary-color);
+    color: white;
+    text-decoration: none;
+    border-radius: var(--border-radius);
+    transition: all var(--transition);
+  }
+
+  .file-download:hover {
+    background: var(--primary-hover);
+  }
+
+  .media-caption {
+    margin: 1rem 0 0 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  .media-error {
+    padding: 1rem;
+    background: var(--error-bg);
+    color: var(--error-color);
+    border-radius: var(--border-radius);
+    text-align: center;
+  }
+
+  .no-content {
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+    padding: 2rem;
+  }
+
+  .lesson-navigation {
+    background: white;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+  }
+
+  .nav-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .nav-btn {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    background: white;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all var(--transition);
+    font-size: 0.9rem;
+    max-width: 300px;
+    text-align: left;
+  }
+
+  .nav-btn:not(:disabled):hover {
+    background: var(--bg-secondary);
+    border-color: var(--primary-color);
+  }
+
+  .nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .next-btn {
+    text-align: right;
+  }
+
+  .lesson-progress {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .loading-container,
+  .error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    text-align: center;
+  }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .header-content {
+      padding: 0 1rem;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .header-right {
+      justify-content: space-between;
+    }
+
+    .lesson-main {
+      padding: 1rem;
+    }
+
+    .lesson-content {
+      padding: 1.5rem;
+    }
+
+    .nav-content {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .nav-btn {
+      max-width: 100%;
+      text-align: center;
+    }
+
+    .media-container {
+      padding: 1rem;
+    }
+
+    .lesson-video {
+      max-height: 250px;
+    }
+  }
+</style>
+{% endblock %}

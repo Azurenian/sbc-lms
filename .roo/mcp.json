@@ -25,14 +25,6 @@
         "@modelcontextprotocol/server-sequential-thinking"
       ]
     },
-    "git": {
-      "command": "uvx",
-      "args": [
-        "mcp-server-git",
-        "--repository",
-        "D:\\Files\\Capstone\\vale-lms"
-      ]
-    },
     "puppeteer": {
       "command": "npx",
       "args": [
@@ -45,6 +37,17 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "git": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/inspector",
+        "uvx",
+        "mcp-server-git",
+        "--repository",
+        "D:/Files/Capstone/vale-lms"
       ]
     }
   }

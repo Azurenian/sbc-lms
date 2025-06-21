@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}PI-LMS{% endblock %}</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', path='/css/style.css') }}"
+    />
+    <script src="{{ url_for('static', path='/js/htmx.min.js') }}"></script>
+    <script
+      defer
+      src="{{ url_for('static', path='/js/alpine.min.js') }}"
+    ></script>
+    {% if request.url.path.endswith('/edit') %}
+    <script src="{{ url_for('static', path='/js/lexical-editor.js') }}"></script>
+    {% endif %} {% block head %}{% endblock %}
+  </head>
+  <body>
+    <div class="container">{% block content %}{% endblock %}</div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Global Progress Indicator -->
+    <div
+      id="global-progress-indicator"
+      class="progress-indicator"
+      style="display: none"
+      x-data="globalProgressIndicator()"
+      x-show="showIndicator"
+      x-transition
+    >
+      <div class="indicator-content" @click="returnToGeneration">
+        <div class="indicator-icon">🤖</div>
+        <div class="indicator-text">
+          <div class="indicator-title">Lesson Generation</div>
+          <div class="indicator-progress">
+            <span x-text="progressData.progress">0</span>% -
+            <span x-text="getStageName(progressData.stage)">Processing</span>
+          </div>
+        </div>
+        <div class="indicator-actions">
+          <button class="indicator-btn" @click.stop="dismissIndicator">
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Global functions for notifications
+      function showToast(message, type = "info") {
+        const container = document.getElementById("toast-container");
+        const toast = document.createElement("div");
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+          toast.remove();
+        }, 5000);
+      }
+
+      // HTMX event listeners
+      document.body.addEventListener("htmx:responseError", function (evt) {
+        showToast("An error occurred. Please try again.", "error");
+      });
+
+      document.body.addEventListener("htmx:afterRequest", function (evt) {
+        if (evt.detail.xhr.status >= 400) {
+          const response = JSON.parse(evt.detail.xhr.responseText || "{}");
+          showToast(response.error || "An error occurred", "error");
+        }
+      });
+
+      // Global Progress Indicator Management
+      function globalProgressIndicator() {
+        return {
+          showIndicator: false,
+          progressData: {
+            stage: "upload",
+            progress: 0,
+            message: "Processing...",
+            timestamp: null,
+          },
+          websocket: null,
+          sessionId: null,
+
+          init() {
+            this.checkForActiveGeneration();
+            window.addEventListener("global-progress-update", (event) => {
+              const { show, sessionId, progressData } = event.detail;
+              this.showIndicator = show;
+              this.sessionId = sessionId;
+              if (progressData) {
+                this.progressData = progressData;
+              }
+
+              if (this.showIndicator && !this.websocket) {
+                this.connectWebSocket();
+              } else if (!this.showIndicator && this.websocket) {
+                this.disconnectWebSocket();
+              }
+            });
+          },
+
+          checkForActiveGeneration() {
+            const savedState = sessionStorage.getItem("lessonGeneratorState");
+            if (savedState) {
+              try {
+                const state = JSON.parse(savedState);
+                if (state.sessionId && state.currentStep === 2) {
+                  this.sessionId = state.sessionId;
+                  this.progressData = state.progressData || this.progressData;
+                  this.showIndicator = true;
+                  this.connectWebSocket();
+                }
+              } catch (e) {
+                console.error("Failed to parse saved state:", e);
+              }
+            }
+          },
+
+          connectWebSocket() {
+            if (
+              !this.sessionId ||
+              (this.websocket && this.websocket.readyState === WebSocket.OPEN)
+            )
+              return;
+
+            try {
+              const wsUrl = `ws://localhost:8000/ws/lesson-progress/${this.sessionId}`;
+              this.websocket = new WebSocket(wsUrl);
+
+              this.websocket.onmessage = (event) => {
+                try {
+                  const data = JSON.parse(event.data);
+                  this.progressData = data;
+
+                  // Update session storage
+                  const savedState = sessionStorage.getItem(
+                    "lessonGeneratorState"
+                  );
+                  if (savedState) {
+                    const state = JSON.parse(savedState);
+                    state.progressData = data;
+                    sessionStorage.setItem(
+                      "lessonGeneratorState",
+                      JSON.stringify(state)
+                    );
+                  }
+
+                  // Hide indicator when generation is complete
+                  if (data.stage === "selection" && data.progress >= 100) {
+                    this.showIndicator = false;
+                    this.disconnectWebSocket();
+                    showToast(
+                      "Lesson generation completed! Ready for video selection.",
+                      "success"
+                    );
+                  }
+                } catch (e) {
+                  console.error("Error parsing WebSocket message:", e);
+                }
+              };
+
+              this.websocket.onclose = () => {
+                console.log("Global WebSocket disconnected");
+                this.websocket = null;
+              };
+
+              this.websocket.onerror = (error) => {
+                console.error("Global WebSocket error:", error);
+                this.websocket = null; // Ensure cleanup on error
+              };
+            } catch (error) {
+              console.error("Failed to connect WebSocket:", error);
+            }
+          },
+
+          disconnectWebSocket() {
+            if (this.websocket) {
+              this.websocket.close();
+            }
+          },
+
+          returnToGeneration() {
+            // Redirect back to the lesson generator page
+            window.location.href = "/lesson-generator";
+          },
+
+          dismissIndicator() {
+            this.showIndicator = false;
+            this.disconnectWebSocket();
+            // Optionally, we could also cancel the generation here
+            // For now, just hiding the indicator
+          },
+
+          getStageName(stage) {
+            const names = {
+              upload: "File Upload",
+              processing: "AI Analysis",
+              youtube: "Media Generation",
+              selection: "Ready for Selection",
+              cancelled: "Cancelled",
+            };
+            return names[stage] || "Processing";
+          },
+
+          returnToGeneration() {
+            window.location.href = "/lesson-generator";
+          },
+
+          dismissIndicator() {
+            this.showIndicator = false;
+          },
+        };
+      }
+    </script>
+  </body>
+</html>

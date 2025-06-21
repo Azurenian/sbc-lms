@@ -1,0 +1,706 @@
+{% extends "base.html" %} {% block title %}Edit: {{ lesson.title }} - PI-LMS{%
+endblock %} {% block content %}
+<div class="lesson-edit-container" x-data="lessonEditPage()">
+  <!-- Header -->
+  <header class="lesson-edit-header">
+    <div class="header-content">
+      <div class="header-left">
+        <button @click="goBack" class="back-btn">← Cancel</button>
+        <div class="lesson-info">
+          <h1>Edit Lesson</h1>
+          <div class="lesson-meta">
+            <span class="course-title" x-text="lesson.course?.title"></span>
+            <span class="separator">•</span>
+            <span x-text="lesson.title"></span>
+          </div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="save-actions">
+          <button @click="saveDraft" :disabled="saving" class="btn-secondary">
+            <span x-show="!saving">💾 Save Draft</span>
+            <span x-show="saving">Saving...</span>
+          </button>
+          <button
+            @click="saveAndPublish"
+            :disabled="saving"
+            class="btn-primary"
+          >
+            <span x-show="!saving">� Save & Publish</span>
+            <span x-show="saving">Publishing...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading State -->
+  <div x-show="loading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <p>Loading lesson editor...</p>
+  </div>
+
+  <!-- Error State -->
+  <div x-show="error" class="error-container">
+    <div class="error-message">
+      <h3>Error Loading Editor</h3>
+      <p x-text="errorMessage"></p>
+      <button @click="loadLesson" class="retry-btn">Try Again</button>
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <main class="lesson-edit-main" x-show="!loading && !error">
+    <div class="editor-container">
+      <!-- Lesson Title Editor -->
+      <div class="title-editor">
+        <label for="lesson-title">Lesson Title</label>
+        <input
+          type="text"
+          id="lesson-title"
+          x-model="lessonTitle"
+          placeholder="Enter lesson title..."
+          class="title-input"
+          @input="markAsModified"
+        />
+      </div>
+
+      <!-- Lexical Editor -->
+      <div class="lexical-editor-wrapper">
+        <div id="lexical-editor" class="lexical-editor-container">
+          <!-- Lexical editor will be initialized here -->
+        </div>
+      </div>
+
+      <!-- Editor Status -->
+      <div class="editor-status">
+        <div class="status-info">
+          <span x-show="isModified" class="modified-indicator">
+            ● Unsaved changes
+          </span>
+          <span x-show="!isModified" class="saved-indicator">
+            ✓ All changes saved
+          </span>
+        </div>
+        <div class="lesson-stats" x-show="lessonStats">
+          <span x-text="`${lessonStats.sections} sections`"></span>
+          <span x-show="lessonStats.hasAudio">• Audio included</span>
+          <span x-show="lessonStats.hasVideo">• Video included</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Save Confirmation Modal -->
+  <div
+    x-show="showSaveModal"
+    class="modal-overlay"
+    @click="showSaveModal = false"
+  >
+    <div class="modal-content" @click.stop>
+      <h3>Save Changes</h3>
+      <p>
+        Would you like to save this lesson as a draft or publish it immediately?
+      </p>
+      <div class="modal-actions">
+        <button @click="showSaveModal = false" class="btn-secondary">
+          Cancel
+        </button>
+        <button @click="confirmSaveDraft" class="btn-secondary">
+          Save as Draft
+        </button>
+        <button @click="confirmSaveAndPublish" class="btn-primary">
+          Save & Publish
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function lessonEditPage() {
+    return {
+      loading: true,
+      error: false,
+      errorMessage: '',
+      saving: false,
+      lesson: {{ lesson | tojson }},
+      user: {{ user | tojson }},
+      lessonTitle: '{{ lesson.title }}',
+      lexicalEditor: null,
+      isModified: false,
+      showSaveModal: false,
+      lessonStats: null,
+
+      async init() {
+        await this.loadLesson();
+        this.initializeLexicalEditor();
+      },
+
+      async loadLesson() {
+        this.loading = true;
+        this.error = false;
+
+        try {
+          // Lesson data is already provided from the server
+          if (this.lesson && this.lesson.content) {
+            this.loading = false;
+            return;
+          }
+
+          // Fallback: load lesson data via API
+          const response = await fetch(`/api/lessons/${this.lesson.id}`);
+          const data = await response.json();
+
+          if (response.ok) {
+            this.lesson = data.lesson;
+            this.lessonTitle = this.lesson.title;
+          } else {
+            throw new Error(data.error || 'Failed to load lesson');
+          }
+        } catch (error) {
+          console.error('Error loading lesson:', error);
+          this.error = true;
+          this.errorMessage = error.message;
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      initializeLexicalEditor() {
+        // Initialize the lexical editor
+        if (typeof LessonLexicalEditor !== 'undefined') {
+          this.lexicalEditor = new LessonLexicalEditor('lexical-editor');
+
+          // Load lesson content into editor
+          if (this.lesson.content) {
+            this.lexicalEditor.loadLessonData(this.lesson);
+          }
+
+          // Set up change detection
+          this.setupChangeDetection();
+          this.updateLessonStats();
+        } else {
+          console.error('LessonLexicalEditor not found. Make sure lexical-editor.js is loaded.');
+          this.error = true;
+          this.errorMessage = 'Editor failed to initialize. Please refresh the page.';
+        }
+      },
+
+      setupChangeDetection() {
+        // Watch for changes in the editor
+        if (this.lexicalEditor && this.lexicalEditor.container) {
+          this.lexicalEditor.container.addEventListener('input', () => {
+            this.markAsModified();
+            this.updateLessonStats();
+          });
+        }
+      },
+
+      markAsModified() {
+        this.isModified = true;
+      },
+
+      updateLessonStats() {
+        if (this.lexicalEditor) {
+          this.lessonStats = this.lexicalEditor.getSummary();
+        }
+      },
+
+      async saveDraft() {
+        await this.saveLesson(false);
+      },
+
+      async saveAndPublish() {
+        await this.saveLesson(true);
+      },
+
+      async saveLesson(publish = false) {
+        if (!this.lessonTitle.trim()) {
+          showToast('Please enter a lesson title', 'error');
+          return;
+        }
+
+        this.saving = true;
+
+        try {
+          // Check if content was actually modified
+          const isContentModified = this.lexicalEditor && this.lexicalEditor.isModified();
+
+          let updateData;
+
+          let lessonData = null;
+
+          if (isContentModified) {
+            // Content was modified - reconstruct with original upload nodes
+            console.warn('Content was modified, reconstructing with original upload nodes');
+            lessonData = this.lexicalEditor.getLessonData();
+
+            // Get original upload nodes and convert them to reference-only format
+            const originalUploads = this.lesson.content?.root?.children?.filter(child => child.type === 'upload').map(upload => {
+              // Convert populated upload node to reference-only format for PayloadCMS
+              return {
+                ...upload,
+                value: upload.value?.id || upload.value // Use media ID only, not full object
+              };
+            }) || [];
+
+            // Filter out any null/corrupted nodes from converted content
+            const convertedChildren = lessonData.content.root.children.filter(child => child !== null && child.type !== 'upload');
+
+            // Reconstruct children with reference-only uploads + converted content
+            const reconstructedChildren = [...originalUploads, ...convertedChildren];
+
+            // Preserve complete lesson structure with reconstructed content
+            updateData = {
+              ...this.lesson,
+              title: this.lessonTitle.trim(),
+              content: {
+                ...lessonData.content,
+                root: {
+                  ...lessonData.content.root,
+                  children: reconstructedChildren
+                }
+              },
+              published: publish
+            };
+
+            // Log for debugging
+            console.log('Original upload nodes:', originalUploads.length);
+            console.log('Converted children (non-upload):', convertedChildren.length);
+            console.log('Reconstructed children total:', reconstructedChildren.length);
+
+          } else {
+            // Content not modified - send minimal update to avoid validation issues
+            console.log('Content not modified, sending minimal update');
+            updateData = {
+              title: this.lessonTitle.trim(),
+              published: publish
+            };
+          }
+
+          // Comprehensive logging before submission
+          console.log('=== LESSON EDIT SUBMISSION DEBUG ===');
+          console.log('Content modified?', isContentModified);
+          console.log('Original lesson structure:', JSON.stringify(this.lesson, null, 2));
+          console.log('Update data being sent:', JSON.stringify(updateData, null, 2));
+
+          if (isContentModified && lessonData && lessonData.content) {
+            console.log('Content comparison:');
+            console.log('Original content structure:', JSON.stringify(this.lesson.content, null, 2));
+            console.log('Converted content structure:', JSON.stringify(lessonData.content, null, 2));
+          }
+          console.log('=== END DEBUG INFO ===');
+
+          const response = await fetch(`/api/lessons/${this.lesson.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+
+            // Update lesson data if returned, otherwise keep current lesson
+            if (result.lesson) {
+              this.lesson = result.lesson;
+            }
+
+            this.isModified = false;
+
+            const action = publish ? 'published' : 'saved as draft';
+            showToast(`Lesson ${action} successfully!`, 'success');
+
+            // Use the original lesson ID from the URL path for redirect
+            // This ensures we always have a valid ID regardless of API response
+            const currentPath = window.location.pathname;
+            const lessonIdMatch = currentPath.match(/\/lessons\/(\d+)\/edit/);
+            const lessonId = lessonIdMatch ? lessonIdMatch[1] : (this.lesson?.id || this.lesson?.lessonId);
+
+            console.log('Current path:', currentPath);
+            console.log('Extracted lesson ID:', lessonId);
+
+            if (lessonId) {
+              // Redirect to lesson view after successful save
+              setTimeout(() => {
+                window.location.href = `/lessons/${lessonId}`;
+              }, 1000);
+            } else {
+              console.error('No valid lesson ID found for redirect');
+              showToast('Lesson saved but redirect failed - no lesson ID', 'warning');
+            }
+          } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to save lesson');
+          }
+        } catch (error) {
+          console.error('Error saving lesson:', error);
+          showToast(`Error saving lesson: ${error.message}`, 'error');
+        } finally {
+          this.saving = false;
+        }
+      },
+
+      confirmSaveDraft() {
+        this.showSaveModal = false;
+        this.saveDraft();
+      },
+
+      confirmSaveAndPublish() {
+        this.showSaveModal = false;
+        this.saveAndPublish();
+      },
+
+      async goBack() {
+        // Extract lesson ID from current URL path
+        const currentPath = window.location.pathname;
+        const lessonIdMatch = currentPath.match(/\/lessons\/(\d+)\/edit/);
+        const lessonId = lessonIdMatch ? lessonIdMatch[1] : (this.lesson?.id || this.lesson?.lessonId);
+
+        if (!lessonId) {
+          console.error('No lesson ID found for goBack');
+          window.location.href = '/courses';
+          return;
+        }
+
+        if (this.isModified) {
+          if (confirm('You have unsaved changes. Are you sure you want to leave without saving?')) {
+            window.location.href = `/lessons/${lessonId}`;
+          }
+        } else {
+          window.location.href = `/lessons/${lessonId}`;
+        }
+      },
+
+      // Handle beforeunload to warn about unsaved changes
+      handleBeforeUnload(event) {
+        if (this.isModified) {
+          event.preventDefault();
+          event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+          return event.returnValue;
+        }
+      }
+    };
+  }
+
+  // Add beforeunload event listener
+  window.addEventListener('beforeunload', function(event) {
+    const pageData = Alpine.store('lessonEditPage');
+    if (pageData && pageData.isModified) {
+      event.preventDefault();
+      event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      return event.returnValue;
+    }
+  });
+</script>
+
+<style>
+  .lesson-edit-container {
+    min-height: 100vh;
+    background: var(--bg-secondary);
+  }
+
+  .lesson-edit-header {
+    background: white;
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+  }
+
+  .back-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+
+  .back-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .lesson-info h1 {
+    margin: 0 0 0.25rem 0;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+  }
+
+  .lesson-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .course-title {
+    font-weight: 600;
+    color: var(--primary-color);
+  }
+
+  .separator {
+    color: var(--border-color);
+  }
+
+  .save-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .lesson-edit-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .editor-container {
+    background: white;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+
+  .title-editor {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .title-editor label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .title-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: white;
+    transition: all var(--transition);
+  }
+
+  .title-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .lexical-editor-wrapper {
+    min-height: 60vh;
+  }
+
+  .lexical-editor-container {
+    height: 100%;
+    min-height: 60vh;
+  }
+
+  .editor-status {
+    padding: 1rem 1.5rem;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+  }
+
+  .modified-indicator {
+    color: var(--warning-color);
+    font-weight: 600;
+  }
+
+  .saved-indicator {
+    color: var(--success-color);
+    font-weight: 600;
+  }
+
+  .lesson-stats {
+    color: var(--text-secondary);
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  }
+
+  .modal-content h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+  }
+
+  .modal-content p {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+
+  .loading-container,
+  .error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    text-align: center;
+  }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .error-message {
+    max-width: 400px;
+  }
+
+  .error-message h3 {
+    color: var(--error-color);
+    margin-bottom: 0.5rem;
+  }
+
+  .retry-btn {
+    margin-top: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+
+  .retry-btn:hover {
+    background: var(--primary-hover);
+  }
+
+  /* Override lexical editor styles for better integration */
+  .lexical-editor-container .lexical-toolbar {
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    padding: 1rem;
+  }
+
+  .lexical-editor-container .lexical-editor-content {
+    padding: 2rem;
+    min-height: 50vh;
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
+
+  .lexical-editor-container .lexical-editor-content:focus {
+    outline: none;
+  }
+
+  .lexical-editor-container .placeholder-text {
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  @media (max-width: 768px) {
+    .header-content {
+      padding: 0 1rem;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .save-actions {
+      justify-content: stretch;
+    }
+
+    .save-actions button {
+      flex: 1;
+    }
+
+    .lesson-edit-main {
+      padding: 1rem;
+    }
+
+    .title-editor {
+      padding: 1rem;
+    }
+
+    .lexical-editor-container .lexical-editor-content {
+      padding: 1rem;
+    }
+
+    .editor-status {
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: stretch;
+      text-align: center;
+    }
+
+    .modal-actions {
+      flex-direction: column;
+    }
+  }
+</style>
+{% endblock %}

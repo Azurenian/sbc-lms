@@ -1,0 +1,683 @@
+{% extends "base.html" %} {% block title %}{{ course.title }} - PI-LMS{%
+endblock %} {% block content %}
+<div class="course-detail-container" x-data="courseDetailPage()">
+  <!-- Header -->
+  <header class="course-header">
+    <div class="header-content">
+      <div class="header-left">
+        <button @click="goBack" class="back-btn">← Back to Courses</button>
+        <div class="course-info">
+          <h1 x-text="course.title"></h1>
+          <p class="course-subtitle" x-text="course.description"></p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="course-status" :class="getStatusClass(course)">
+          <span x-text="getStatusText(course)"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Course Overview -->
+  <div class="course-overview">
+    <div class="overview-content">
+      <div class="course-image" :class="{'no-image': !course.image?.url}">
+        <template x-if="course.image?.url">
+          <img
+            :src="`http://localhost:3000${course.image.url}`"
+            :alt="course.image.alt || course.title"
+          />
+        </template>
+        <template x-if="!course.image?.url">
+          <div class="default-course-image">
+            <span class="course-icon">📚</span>
+            <span class="course-placeholder-text">No Image</span>
+          </div>
+        </template>
+      </div>
+      <div class="course-details">
+        <div class="detail-row">
+          <span class="label">Instructor:</span>
+          <span
+            x-text="`${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim() || 'Not assigned'"
+          ></span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Duration:</span>
+          <span
+            x-text="formatDateRange(course.startDate, course.endDate)"
+          ></span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Total Lessons:</span>
+          <span x-text="lessons.length"></span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Course ID:</span>
+          <span x-text="course.id"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div x-show="loading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <p>Loading lessons...</p>
+  </div>
+
+  <!-- Error State -->
+  <div x-show="error" class="error-container">
+    <div class="error-message">
+      <h3>Error Loading Lessons</h3>
+      <p x-text="errorMessage"></p>
+      <button @click="loadLessons" class="retry-btn">Try Again</button>
+    </div>
+  </div>
+
+  <!-- Lessons Section -->
+  <main class="lessons-main" x-show="!loading && !error">
+    <div class="lessons-header">
+      <h2>Course Lessons</h2>
+      <div class="lessons-actions" x-show="user.role !== 'student'">
+        <button @click="createLesson" class="btn-primary">
+          + Add New Lesson
+        </button>
+      </div>
+    </div>
+
+    <!-- Lessons List -->
+    <div class="lessons-list">
+      <template x-for="(lesson, index) in lessons" :key="lesson.id">
+        <div
+          class="lesson-card"
+          :class="{'published': lesson.published, 'draft': !lesson.published}"
+        >
+          <div class="lesson-number">
+            <span x-text="index + 1"></span>
+          </div>
+
+          <div class="lesson-content" @click="openLesson(lesson.id)">
+            <div class="lesson-header">
+              <h3 class="lesson-title" x-text="lesson.title"></h3>
+              <div class="lesson-status">
+                <span x-show="lesson.published" class="status-badge published"
+                  >Published</span
+                >
+                <span x-show="!lesson.published" class="status-badge draft"
+                  >Draft</span
+                >
+              </div>
+            </div>
+
+            <div class="lesson-meta">
+              <div class="lesson-summary" x-show="lesson.summary">
+                <span x-text="lesson.summary"></span>
+              </div>
+              <div class="lesson-stats">
+                <span class="stat" x-show="lesson.sections">
+                  📖 <span x-text="lesson.sections"></span> sections
+                </span>
+                <span class="stat" x-show="lesson.hasAudio">
+                  🎵 Audio included
+                </span>
+                <span class="stat" x-show="lesson.hasVideo">
+                  🎬 Video included
+                </span>
+                <span class="stat">
+                  📅 <span x-text="formatDate(lesson.updatedAt)"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lesson-actions" x-show="user.role !== 'student'">
+            <button
+              @click.stop="editLesson(lesson.id)"
+              class="btn-secondary"
+              title="Edit Lesson"
+            >
+              ✏️ Edit
+            </button>
+            <button
+              @click.stop="deleteLesson(lesson.id)"
+              class="btn-danger"
+              title="Delete Lesson"
+            >
+              🗑️ Delete
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- Empty State -->
+      <div x-show="lessons.length === 0 && !loading" class="empty-lessons">
+        <div class="empty-icon">📚</div>
+        <h3>No Lessons Yet</h3>
+        <p x-show="user.role === 'student'">
+          This course doesn't have any lessons yet. Check back later!
+        </p>
+        <template x-if="user.role !== 'student'">
+          <div>
+            <p>This course doesn't have any lessons yet.</p>
+            <button @click="createLesson" class="btn-primary">
+              Create First Lesson
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  function courseDetailPage() {
+    return {
+      loading: true,
+      error: false,
+      errorMessage: '',
+      course: {{ course | tojson }},
+      lessons: [],
+      user: {{ user | tojson }},
+
+      async init() {
+        await this.loadLessons();
+      },
+
+      async loadLessons() {
+        this.loading = true;
+        this.error = false;
+
+        try {
+          const response = await fetch(`/api/courses/${this.course.id}/lessons`);
+          const data = await response.json();
+
+          if (response.ok) {
+            this.lessons = data.lessons || [];
+            // Add lesson summaries and stats
+            this.addLessonStats();
+          } else {
+            throw new Error(data.error || 'Failed to load lessons');
+          }
+        } catch (error) {
+          console.error('Error loading lessons:', error);
+          this.error = true;
+          this.errorMessage = error.message;
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      addLessonStats() {
+        this.lessons.forEach(lesson => {
+          if (lesson.content && lesson.content.root && lesson.content.root.children) {
+            const children = lesson.content.root.children;
+            let sections = 0;
+            let hasAudio = false;
+            let hasVideo = false;
+
+            children.forEach(node => {
+              if (node.type === 'heading') {
+                sections++;
+              } else if (node.type === 'upload' && node.relationTo === 'media') {
+                if (node.value && node.value.mimeType) {
+                  if (node.value.mimeType.startsWith('audio/')) {
+                    hasAudio = true;
+                  } else if (node.value.mimeType.startsWith('video/')) {
+                    hasVideo = true;
+                  }
+                }
+              }
+            });
+
+            lesson.sections = sections;
+            lesson.hasAudio = hasAudio;
+            lesson.hasVideo = hasVideo;
+
+            // Generate summary from first paragraph
+            const firstParagraph = children.find(node =>
+              node.type === 'paragraph' && node.children && node.children.length > 0
+            );
+            if (firstParagraph && firstParagraph.children[0] && firstParagraph.children[0].text) {
+              lesson.summary = firstParagraph.children[0].text.substring(0, 100) + '...';
+            }
+          }
+        });
+      },
+
+      getCourseStatus(course) {
+        const now = new Date();
+        const startDate = new Date(course.startDate);
+        const endDate = new Date(course.endDate);
+
+        if (now < startDate) {
+          return 'upcoming';
+        } else if (now > endDate) {
+          return 'completed';
+        } else {
+          return 'active';
+        }
+      },
+
+      getStatusClass(course) {
+        const status = this.getCourseStatus(course);
+        return `status-${status}`;
+      },
+
+      getStatusText(course) {
+        const status = this.getCourseStatus(course);
+        return {
+          'active': 'Active',
+          'completed': 'Completed',
+          'upcoming': 'Upcoming'
+        }[status] || 'Unknown';
+      },
+
+      formatDateRange(startDate, endDate) {
+        const start = new Date(startDate).toLocaleDateString();
+        const end = new Date(endDate).toLocaleDateString();
+        return `${start} - ${end}`;
+      },
+
+      formatDate(dateString) {
+        return new Date(dateString).toLocaleDateString();
+      },
+
+      openLesson(lessonId) {
+        showToast('Loading lesson...', 'info');
+        window.location.href = `/lessons/${lessonId}`;
+      },
+
+      editLesson(lessonId) {
+        showToast('Opening lesson editor...', 'info');
+        window.location.href = `/lessons/${lessonId}/edit`;
+      },
+
+      async deleteLesson(lessonId) {
+        if (!confirm('Are you sure you want to delete this lesson? This action cannot be undone.')) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/lessons/${lessonId}`, {
+            method: 'DELETE'
+          });
+
+          if (response.ok) {
+            showToast('Lesson deleted successfully', 'success');
+            await this.loadLessons();
+          } else {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to delete lesson');
+          }
+        } catch (error) {
+          showToast(`Error deleting lesson: ${error.message}`, 'error');
+        }
+      },
+
+      createLesson() {
+        showToast('Opening lesson creator...', 'info');
+        window.open(`http://localhost:3000/admin/collections/lessons/create?course=${this.course.id}`, '_blank');
+      },
+
+      goBack() {
+        window.location.href = '/courses';
+      }
+    };
+  }
+</script>
+
+<style>
+  .course-detail-container {
+    min-height: 100vh;
+    background: var(--bg-secondary);
+  }
+
+  .course-header {
+    background: white;
+    border-bottom: 1px solid var(--border-color);
+    padding: 1.5rem 0;
+  }
+
+  .header-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1;
+  }
+
+  .back-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+
+  .back-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .course-info h1 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-primary);
+    font-size: 1.8rem;
+  }
+
+  .course-subtitle {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+
+  .course-status {
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .course-overview {
+    background: white;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .overview-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .course-image {
+    width: 100%;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+  }
+
+  .course-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .course-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .detail-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .detail-row .label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 120px;
+  }
+
+  .lessons-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .lessons-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  .lessons-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .lessons-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .lesson-card {
+    background: white;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    transition: all var(--transition);
+    cursor: pointer;
+  }
+
+  .lesson-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .lesson-card.draft {
+    border-left: 4px solid var(--warning-color);
+  }
+
+  .lesson-card.published {
+    border-left: 4px solid var(--success-color);
+  }
+
+  .lesson-number {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .lesson-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .lesson-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+  }
+
+  .lesson-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .status-badge.published {
+    background: var(--success-color);
+    color: white;
+  }
+
+  .status-badge.draft {
+    background: var(--warning-color);
+    color: white;
+  }
+
+  .lesson-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .lesson-summary {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  .lesson-stats {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .lesson-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .lesson-actions button {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    background: white;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all var(--transition);
+    font-size: 0.8rem;
+  }
+
+  .lesson-actions .btn-secondary:hover {
+    background: var(--bg-secondary);
+  }
+
+  .lesson-actions .btn-danger:hover {
+    background: var(--error-color);
+    color: white;
+    border-color: var(--error-color);
+  }
+
+  .empty-lessons {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+  }
+
+  .empty-lessons h3 {
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+  }
+
+  .loading-container,
+  .error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 30vh;
+    text-align: center;
+  }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .header-content {
+      padding: 0 1rem;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .overview-content {
+      padding: 1rem;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .course-image {
+      max-width: 200px;
+      margin: 0 auto;
+    }
+
+    .lessons-main {
+      padding: 1rem;
+    }
+
+    .lessons-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .lesson-card {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+    }
+
+    .lesson-header {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .lesson-actions {
+      justify-content: center;
+    }
+  }
+</style>
+{% endblock %}
