@@ -1,0 +1,352 @@
+{
+  "root": {
+    "type": "root",
+    "direction": "ltr",
+    "format": "",
+    "indent": 0,
+    "version": 1,
+    "children": [
+      {
+        "type": "heading",
+        "tag": "h1",
+        "indent": 0,
+        "children": [
+          {
+            "text": "Understanding Subordinating Conjunctions",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "children": [
+          {
+            "text": "Welcome to our lesson on Subordinating Conjunctions! By the end of this lesson, you will be able to identify these important words and understand how they are used to connect ideas in sentences.",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "tag": "h2",
+        "indent": 0,
+        "children": [
+          {
+            "text": "What are Conjunctions?",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "children": [
+          {
+            "text": "Before we dive into subordinating conjunctions, let's quickly review. You've already learned about ",
+            "type": "text"
+          },
+          {
+            "text": "Coordinating Conjunctions",
+            "type": "text",
+            "format": 1
+          },
+          {
+            "text": " (like FANBOYS: For, And, Nor, But, Or, Yet, So). These connect two independent clauses (complete thoughts) of equal importance.",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "tag": "h2",
+        "indent": 0,
+        "children": [
+          {
+            "text": "Introducing Subordinating Conjunctions",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "children": [
+          {
+            "text": "Subordinating conjunctions are words that connect two different types of clauses: an ",
+            "type": "text"
+          },
+          {
+            "text": "independent clause",
+            "type": "text",
+            "format": 1
+          },
+          {
+            "text": " (a complete thought that can stand alone as a sentence) and a ",
+            "type": "text"
+          },
+          {
+            "text": "dependent clause",
+            "type": "text",
+            "format": 1
+          },
+          {
+            "text": " (a group of words that cannot stand alone as a complete sentence).",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "children": [
+          {
+            "text": "These conjunctions show a relationship between the two clauses, such as:",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "tag": "ul",
+        "indent": 0,
+        "children": [
+          {
+            "type": "listitem",
+            "indent": 0,
+            "children": [
+              {
+                "text": "Time (e.g., ",
+                "type": "text"
+              },
+              {
+                "text": "after, before, when, while, as soon as, until",
+                "type": "text",
+                "format": 1
+              },
+              {
+                "text": ")",
+                "type": "text"
+              }
+            ]
+          },
+          {
+            "type": "listitem",
+            "indent": 0,
+            "children": [
+              {
+                "text": "Cause/Reason (e.g., ",
+                "type": "text"
+              },
+              {
+                "text": "because, since, as",
+                "type": "text",
+                "format": 1
+              },
+              {
+                "text": ")",
+                "type": "text"
+              }
+            ]
+          },
+          {
+            "type": "listitem",
+            "indent": 0,
+            "children": [
+              {
+                "text": "Condition (e.g., ",
+                "type": "text"
+              },
+              {
+                "text": "if, unless, provided",
+                "type": "text",
+                "format": 1
+              },
+              {
+                "text": ")",
+                "type": "text"
+              }
+            ]
+          },
+          {
+            "type": "listitem",
+            "indent": 0,
+            "children": [
+              {
+                "text": "Contrast (e.g., ",
+                "type": "text"
+              },
+              {
+                "text": "although, even though, while",
+                "type": "text",
+                "format": 1
+              },
+              {
+                "text": ")",
+                "type": "text"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "tag": "h3",
+        "indent": 0,
+        "children": [
+          {
+            "text": "Common Subordinating Conjunctions:",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "tag": "ul",
+        "indent": 0,
+        "children": [
+          {
+            "type": "listitem",
+            "indent": 0,
+            "children": [
+              {
+                "text": "after, although, as, because, before, if, provided, since, unless, until, then, whenever, wherever, while, where, when, in case, as long as, as soon as, once, by the time.",
+                "type": "text"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "tag": "h2",
+        "indent": 0,
+        "children": [
+          {
+            "text": "How to Use Subordinating Conjunctions (Punctuation Rules)",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "children": [
+          {
+            "text": "The placement of the subordinating conjunction affects whether you need a comma:",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "tag": "ul",
+        "indent": 0,
+        "children": [
+          {
+            "type": "listitem",
+            "indent": 0,
+            "children": [
+              {
+                "text": "When the ",
+                "type": "text"
+              },
+              {
+                "text": "dependent clause comes FIRST",
+                "type": "text",
+                "format": 1
+              },
+              {
+                "text": " in the sentence, use a comma after it:",
+                "type": "text"
+              }
+            ]
+          },
+          {
+            "type": "listitem",
+            "indent": 1,
+            "children": [
+              {
+                "text": "Example: ",
+                "type": "text"
+              },
+              {
+                "text": "Because it was raining",
+                "type": "text",
+                "format": 1
+              },
+              {
+                "text": ", we stayed inside.",
+                "type": "text"
+              }
+            ]
+          },
+          {
+            "type": "listitem",
+            "indent": 0,
+            "children": [
+              {
+                "text": "When the ",
+                "type": "text"
+              },
+              {
+                "text": "independent clause comes FIRST",
+                "type": "text",
+                "format": 1
+              },
+              {
+                "text": ", you usually ",
+                "type": "text"
+              },
+              {
+                "text": "DO NOT",
+                "type": "text",
+                "format": 1
+              },
+              {
+                "text": " need a comma:",
+                "type": "text"
+              }
+            ]
+          },
+          {
+            "type": "listitem",
+            "indent": 1,
+            "children": [
+              {
+                "text": "Example: We stayed inside ",
+                "type": "text"
+              },
+              {
+                "text": "because it was raining.",
+                "type": "text",
+                "format": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "tag": "h2",
+        "indent": 0,
+        "children": [
+          {
+            "text": "Practice Time!",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "indent": 0,
+        "children": [
+          {
+            "text": "Let's apply what you've learned. You will work on activities to identify, use, and understand subordinating conjunctions in different contexts. Pay attention to how they connect ideas and affect sentence structure.",
+            "type": "text"
+          }
+        ]
+      }
+    ]
+  }
+}

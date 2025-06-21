@@ -1,0 +1,36 @@
+services:
+  nous-core:
+    image: python:3.11-slim
+    ports:
+      - '8000:8000'
+    volumes:
+      - .:/app
+      - nous_media:/app/media
+      - nous_temp:/app/temp
+    working_dir: /app
+    command: sh -c "pip install -r requirements.txt && python api.py"
+    env_file:
+      - .env
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama_data:/root/.ollama
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    environment:
+      - OLLAMA_ORIGINS=*
+      - ROCm_PATH=/opt/rocm
+      - ROCR_VISIBLE_DEVICES=0
+      - HSA_OVERRIDE_GFX_VERSION=11.0.0
+      - GPU_MAX_ALLOC_PERCENT=90
+      - OLLAMA_GPU_OVERHEAD=0
+    privileged: true
+
+volumes:
+  nous_media:
+  nous_temp:
+  ollama_data:
