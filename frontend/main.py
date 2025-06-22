@@ -11,6 +11,10 @@ from datetime import datetime, timedelta
 
 app = FastAPI(title="PI-LMS Frontend", description="Frontend interface for PI-LMS")
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -21,7 +25,7 @@ templates = Jinja2Templates(directory="templates")
 security = HTTPBearer(auto_error=False)
 
 # Configuration
-PAYLOAD_CMS_URL = "http://localhost:3000"  # PayloadCMS backend URL
+PAYLOAD_CMS_URL = os.getenv("PAYLOAD_CMS_URL", "http://localhost:3000")  # PayloadCMS backend URL
 SESSION_SECRET = "your-secret-key-here"  # In production, use environment variable
 
 # In-memory session storage (in production, use Redis or database)

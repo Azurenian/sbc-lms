@@ -20,7 +20,7 @@ load_dotenv()
 app = FastAPI()
 
 # Get CORS origins from environment variable
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080,http://localhost:3000").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost:8081,http://localhost:3000,http://localhost:8000").split(",")
 
 # Add CORS middleware
 app.add_middleware(
@@ -29,6 +29,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # WebSocket connection manager
@@ -868,7 +869,3 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     reload = os.getenv("ENVIRONMENT", "production") == "development"
     uvicorn.run("api:app", host=host, port=port, reload=reload)
-
-
-
-

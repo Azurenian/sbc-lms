@@ -15,10 +15,32 @@ class ChatbotWidget {
         this.messages = [];
         this.currentMode = 'default';
         
+        // Get the current hostname and protocol
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.hostname;
+        const port = window.location.port ? `:${window.location.port}` : '';
+        const baseUrl = `${protocol}//${host}${port}`;
+        
+        // Determine AI HTTP API base
+        const aiBaseUrl = window.API_BASE_URL || 'http://localhost:8000';
+
+        // Derive sensible WebSocket base URL
+        let websocketBase;
+        if (window.WEBSOCKET_URL) {
+            // Explicitly provided at runtime (preferred)
+            websocketBase = window.WEBSOCKET_URL;
+        } else if (/^https?:\/\//.test(aiBaseUrl)) {
+            // Convert the http(s) scheme of the AI base URL to ws(s)
+            websocketBase = aiBaseUrl.replace(/^http/, 'ws');
+        } else {
+            // Fallback to same host but default WS port 8000
+            websocketBase = `${protocol}//${host}:8000`;
+        }
+
         // Configuration
         this.config = {
-            aiServerUrl: 'http://localhost:8000',
-            websocketUrl: 'ws://localhost:8000',
+            aiServerUrl: aiBaseUrl,
+            websocketUrl: websocketBase,
             reconnectInterval: 5000,
             maxReconnectAttempts: 5,
             typingTimeout: 3000
@@ -578,13 +600,21 @@ class ChatbotWidget {
         document.getElementById('smart-suggestions').style.display = 'none';
         document.getElementById('related-lessons').style.display = 'none';
         
+        // Get the current lesson context
+        const lessonContext = this.lessonContext || {};
+        
         // Send via WebSocket
         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
             this.websocket.send(JSON.stringify({
                 type: 'message',
                 content: message,
                 lesson_id: this.lessonId,
-                mode: this.currentMode
+                mode: this.currentMode,
+                context: {
+                    lesson_title: lessonContext.lesson?.title || '',
+                    lesson_content: lessonContext.text_content || '',
+                    lesson_objectives: lessonContext.lesson?.objectives || []
+                }
             }));
         }
         

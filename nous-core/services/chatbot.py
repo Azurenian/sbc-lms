@@ -274,7 +274,8 @@ class ChatbotService:
         session_id: str,
         message: str,
         mode: str = "default",
-        auth_token: str = None
+        auth_token: str = None,
+        lesson_context: dict = None
     ) -> Dict[str, Any]:
         """Generate a chatbot response for a given message"""
         
@@ -285,8 +286,19 @@ class ChatbotService:
         # Add user message to history
         session.add_message("user", message)
         
-        # Get lesson context if not cached
-        if not session.context_cache:
+        # Use provided lesson_context if available, otherwise fetch/cached
+        if lesson_context:
+            # Build a context_cache-like dict from lesson_context
+            session.context_cache = {
+                "lesson": {
+                    "title": lesson_context.get("lesson_title", ""),
+                    "objectives": lesson_context.get("lesson_objectives", []),
+                },
+                "text_content": lesson_context.get("lesson_content", ""),
+                "keywords": lesson_context.get("lesson_objectives", []),
+                "context_summary": lesson_context.get("lesson_content", "")
+            }
+        elif not session.context_cache:
             session.context_cache = await self.get_lesson_context(session.lesson_id, auth_token)
         
         context = session.context_cache

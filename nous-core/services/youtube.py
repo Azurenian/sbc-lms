@@ -17,6 +17,7 @@ def search_videos(keywords: list, max_results: int = 10) -> list:
     Returns a list of dicts: {title, videoId, thumbnail, url}
     """
     query = " ".join(keywords)
+    print(f"[DEBUG] Initializing YouTube client with API key: {YOUTUBE_API_KEY[:5]}...")
     youtube = build(
         YOUTUBE_API_SERVICE_NAME,
         YOUTUBE_API_VERSION,

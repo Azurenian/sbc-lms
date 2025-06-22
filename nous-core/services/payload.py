@@ -43,3 +43,18 @@ def upload_lesson(lesson_data: dict, auth_token: str = None) -> dict:
     response = requests.post(PAYLOAD_CMS_LESSON_URL, headers=headers, json=lesson_data)
     response.raise_for_status()
     return response.json()
+
+def get_lesson_by_id(lesson_id: int, auth_token: str = None) -> dict:
+    """
+    Retrieves a lesson by its ID from Payload CMS via REST API.
+    """
+    PAYLOAD_BASE_URL = os.getenv("PAYLOAD_BASE_URL", "http://localhost:3000")
+    PAYLOAD_CMS_LESSON_URL = f"{PAYLOAD_BASE_URL}/api/lessons/{lesson_id}"
+    token = auth_token or os.getenv("PAYLOAD_CMS_TOKEN")
+    headers = {}
+    if token:
+        headers["Authorization"] = f"JWT {token}"
+    
+    response = requests.get(PAYLOAD_CMS_LESSON_URL, headers=headers)
+    response.raise_for_status()
+    return response.json()

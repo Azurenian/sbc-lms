@@ -1,0 +1,114 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - API_BASE_URL=/api
+      - WEBSOCKET_URL=ws://${HOST_IP:-localhost}:8000  # Use HOST_IP or fallback to localhost
+      - VITE_API_BASE_URL=/api
+      - PAYLOAD_CMS_URL=http://valecore:3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - valecore
+      - nouscore
+    networks:
+      - vale-net
+    restart: unless-stopped
+
+  valecore:
+    build:
+      context: ./vale-core
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./vale-core/tome.db:/app/standalone/tome.db
+      - ./vale-core/media:/app/media
+    environment:
+      - DATABASE_URI=file:/app/standalone/tome.db
+    networks:
+      vale-net:
+        aliases:
+          - backend
+
+  nouscore:
+    build:
+      context: ./nous-core
+      dockerfile: Dockerfile
+    env_file:
+      - ./nous-core/.env
+    environment:
+      - LLAMA_CPP_HOST=http://llama_cpp_server:8080
+      - LLM_MODEL=llama3.2-3b.Q4_K_M.gguf
+      - ENABLE_LOCAL_LLM=true
+    depends_on:
+      llama_cpp_server:
+        condition: service_started
+    # Add a delay to ensure llama_cpp_server has time to load the model
+    entrypoint: /bin/sh -c "sleep 30 && uvicorn api:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    networks:
+      - vale-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_models:/root/.ollama
+  #   networks:
+  #     vale-net:
+  #       aliases:
+  #         - ollama
+
+  llama_cpp_server:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./llama_cpp_models:/models:ro
+    environment:
+      - LLAMA_ARG_MODEL=/models/llama3.2-3b.Q4_K_M.gguf
+      - N_GPU_LAYERS=0
+    networks:
+      vale-net:
+        aliases:
+          - llama_cpp_server
+
+  testingcore:
+    build:
+      context: ./testing-core
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    depends_on:
+      - frontend
+      - valecore
+      - nouscore
+    environment:
+      - FRONTEND_URL=http://frontend:8080
+      - BACKEND_URL=http://backend:3000
+      - AI_SERVICES_URL=http://ai_services:8000
+    networks:
+      - vale-net
+
+networks:
+  vale-net:
+    driver: bridge
+
+volumes:
+  llama_cpp_models:

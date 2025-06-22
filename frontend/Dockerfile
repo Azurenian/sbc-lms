@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+    
+
 # Set working directory
 WORKDIR /app
 
@@ -40,5 +42,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 EXPOSE 8080
 
 # Start command optimized for Orange Pi 5
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", \
-     "--workers", "2", "--log-level", "info", "--access-log"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--log-level", "info", "--access-log"]

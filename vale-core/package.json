@@ -15,6 +15,11 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start"
   },
   "dependencies": {
+    "@libsql/client": "^0.6.0",
+    "@libsql/linux-x64-gnu": "^0.5.13",
+    "@libsql/win32-x64-msvc": "^0.5.13",
+    "@payloadcms/db-sqlite": "3.42.0",
+    "libsql": "^0.5.13",
     "@payloadcms/next": "3.42.0",
     "@payloadcms/payload-cloud": "3.42.0",
     "@payloadcms/richtext-lexical": "3.42.0",
@@ -25,8 +30,7 @@
     "payload": "3.42.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "sharp": "0.32.6",
-    "@payloadcms/db-sqlite": "3.42.0"
+    "sharp": "0.32.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

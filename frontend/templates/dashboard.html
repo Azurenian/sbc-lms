@@ -72,6 +72,10 @@ block content %}
               <span class="icon">⚙️</span>
               Admin Panel
             </button>
+            <button class="action-btn performance-test-action" @click="openPerformanceTest">
+              <span class="icon">🚀</span>
+              Performance Test
+            </button>
             {% endif %} {% if user.role in ['instructor', 'admin'] %}
             <button class="action-btn instructor-action" @click="manageCourses">
               <span class="icon">📚</span>
@@ -215,6 +219,23 @@ block content %}
         showToast("Opening AI Lesson Generator...", "info");
         window.location.href = "/lesson-generator";
       },
+
+      async openPerformanceTest() {
+        showToast("Opening Performance Test...", "info");
+        let url = "http://localhost:9000";
+        try {
+          const res = await fetch("/api/token");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.token) {
+              url += `?token=${encodeURIComponent(data.token)}`;
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to fetch auth token for Testing Core", e);
+        }
+        window.open(url, "_blank");
+      }
     };
   }
 

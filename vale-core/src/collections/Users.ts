@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { APIError } from 'payload'
+import type { PayloadRequest } from 'payload'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -7,48 +8,31 @@ export const Users: CollectionConfig = {
     useAsTitle: 'email',
   },
   auth: {
-    maxLoginAttempts: 5,
+    tokenExpiration: Number.isFinite(Number(process.env.TOKEN_EXPIRATION)) ? Number(process.env.TOKEN_EXPIRATION) : 604800, // 7 days in seconds
+    maxLoginAttempts: Number.isFinite(Number(process.env.MAX_LOGIN_ATTEMPTS)) ? Number(process.env.MAX_LOGIN_ATTEMPTS) : 5,
   },
-  hooks: {
-    beforeLogin: [
-      ({ req, user }) => {
-        // Prevent students from logging into admin panel
-        if (user && user.role === 'student') {
-          throw new APIError(
-            'Access Denied: Students cannot access the admin panel.',
-            403,
-            [
-              {
-                field: 'role',
-                message: 'Student accounts are not authorized for admin access',
-              },
-            ],
-            true
-          )
-        }
-        return user
-      }
-    ]
-  },
+  // Removed global beforeLogin hook that blocked students entirely.
+  // Admin UI access is still restricted via the `access.admin` rule below.
+
   access: {
     // Prevent students from accessing admin operations
-    admin: ({ req }) => {
+    admin: ({ req }: { req: PayloadRequest }) => {
       const user = req.user
       return Boolean(user && user.role !== 'student')
     },
-    create: ({ req }) => {
+    create: ({ req }: { req: PayloadRequest }) => {
       const user = req.user
       return Boolean(user && (user.role === 'admin' || user.role === 'instructor'))
     },
-    read: ({ req }) => {
+    read: ({ req }: { req: PayloadRequest }) => {
       const user = req.user
       return Boolean(user && (user.role === 'admin' || user.role === 'instructor'))
     },
-    update: ({ req }) => {
+    update: ({ req }: { req: PayloadRequest }) => {
       const user = req.user
       return Boolean(user && (user.role === 'admin' || user.role === 'instructor'))
     },
-    delete: ({ req }) => {
+    delete: ({ req }: { req: PayloadRequest }) => {
       const user = req.user
       return Boolean(user && user.role === 'admin') // Only admins can delete users
     },

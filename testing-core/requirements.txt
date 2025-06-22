@@ -1,0 +1,54 @@
+# Pi-LMS Performance Testing Requirements
+# Install with: pip install -r requirements.txt
+
+# Core testing dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# Performance monitoring
+psutil>=5.9.0
+# tracemalloc is built into Python 3.4+
+
+# HTTP client for API testing
+aiohttp>=3.8.0
+httpx>=0.24.0
+
+# WebSocket testing
+websockets>=11.0.0
+
+# PDF generation for test files
+reportlab>=4.0.0
+
+# Data handling
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Database
+# sqlite3 is built into Python
+
+# Async utilities
+# asyncio is built into Python
+
+# Logging and utilities
+colorlog>=6.7.0
+tabulate>=0.9.0
+
+# Optional: For advanced reporting
+matplotlib>=3.7.0  # For generating charts
+plotly>=5.15.0     # For interactive charts
+jinja2>=3.1.0      # For report templating
+
+# Development tools
+black>=23.0.0      # Code formatting
+isort>=5.12.0      # Import sorting
+flake8>=6.0.0      # Linting
+
+# Documentation
+sphinx>=7.0.0      # Documentation generation
+sphinx-rtd-theme>=1.3.0
+
+# Web server for testing dashboard
+fastapi>=0.104.1
+uvicorn[standard]==0.24.0
+aiofiles>=23.2.1
