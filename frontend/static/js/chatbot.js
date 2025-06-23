@@ -378,7 +378,7 @@ class ChatbotWidget {
                     ${role === 'user' ? '👤' : '🤖'}
                 </div>
                 <div class="message-content">
-                    <div class="message-text">${this.formatMessage(content)}</div>
+                    <div class="message-text"></div>
                     <div class="message-time">${this.formatTime(messageTime)}</div>
                 </div>
             </div>
@@ -386,6 +386,9 @@ class ChatbotWidget {
         
         messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
         const messageElement = messagesContainer.lastElementChild;
+        // Render Markdown as HTML
+        const messageTextDiv = messageElement.querySelector('.message-text');
+        messageTextDiv.innerHTML = this.formatMessage(content);
         
         // Add to messages array
         this.messages.push({

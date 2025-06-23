@@ -10,6 +10,7 @@ from datetime import datetime
 import aiohttp
 import os
 from dotenv import load_dotenv
+import markdown  # For Markdown to HTML conversion
 from .llm import get_llm_service
 
 load_dotenv()
@@ -306,7 +307,14 @@ class ChatbotService:
         
         # Load system prompts
         prompts = self.load_system_prompts()
-        system_prompt = prompts.get(mode, prompts["default"])
+        # Ensure system prompt instructs Markdown formatting
+        base_prompt = prompts.get(mode, prompts["default"])
+        system_prompt = (
+            base_prompt
+            + "\n\n"
+            + "When responding, always preserve formatting for lists, indentation, and line breaks using Markdown. "
+              "Use Markdown syntax for lists, code blocks, and any structured content."
+        )
         
         # Build context for LLM
         llm_context = f"Lesson Content: {lesson_content}\n\n"
@@ -350,12 +358,14 @@ class ChatbotService:
             # Generate smart suggestions based on the conversation
             suggestions = self.generate_suggestions(message, response, mode)
             
+            html_response = markdown.markdown(response)
             return {
-                "response": response,
+                "response": html_response,
                 "session_id": session_id,
                 "related_lessons": related_lessons,
                 "suggestions": suggestions,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "format": "html"
             }
             
         except Exception as e:
@@ -364,13 +374,15 @@ class ChatbotService:
             fallback_response = "I'm sorry, I'm having trouble processing your request right now. Could you please try rephrasing your question?"
             session.add_message("assistant", fallback_response)
             
+            html_fallback = markdown.markdown(fallback_response)
             return {
-                "response": fallback_response,
+                "response": html_fallback,
                 "session_id": session_id,
                 "related_lessons": [],
                 "suggestions": ["Can you explain this concept further?", "What are the key points?"],
                 "timestamp": datetime.now().isoformat(),
-                "error": str(e)
+                "error": str(e),
+                "format": "html"
             }
     
     def generate_suggestions(self, user_message: str, bot_response: str, mode: str) -> List[str]:
